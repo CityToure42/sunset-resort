@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#171a2b">
+  <title>Sunset Resort</title>
+  <link rel="stylesheet" href="./styles.css">
+  <!-- importmap: 코드에서 import 'three'라고 쓰면 아래 파일을 가져오라는 안내문 -->
+  <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js" } }</script>
+</head>
+<body data-mode="boot">
+  <canvas id="c" aria-label="석양 해변 3D 화면"></canvas>
+  <div id="joystick-layer" class="joystick-layer"></div>
+  <div id="fatal" class="fatal" hidden></div>
+  <div id="entry" hidden></div>
+  <div id="hud" hidden></div>
+  <div id="panels"></div>
+  <div id="zen" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

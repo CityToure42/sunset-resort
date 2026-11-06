@@ -1,0 +1,17 @@
+{
+  "name": "sunset-resort",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "석양 해변에서 칵테일 한 잔 — 혼자 쓰는 버전(A단계)",
+  "scripts": {
+    "serve": "node scripts/serve.mjs",
+    "pretest:unit": "node scripts/link-three.mjs",
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}
