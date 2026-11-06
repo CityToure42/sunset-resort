@@ -203,3 +203,10 @@ body.flash::after { opacity: 0.55; transition: none; }
 #hud .hud-middle > * { pointer-events: auto; }
 /* iOS에서 버튼을 빨리 두 번 눌러도 화면이 확대되지 않게 */
 button, .tab, .emote, .chip-btn { touch-action: manipulation; }
+
+/* 좁은 폰(320~360px)에서도 진입 카드가 화면 폭에 맞춰 줄어들게: 그리드 칸이 내용물(420px) 기준으로 커지지 않도록 */
+#entry { grid-template-columns: minmax(0, 1fr); }
+.entry-card { width: 100%; max-width: 420px; justify-self: center; min-width: 0; }
+.field { flex-wrap: wrap; gap: 4px; }
+.look-row { grid-template-columns: 56px minmax(0, 1fr); }
+.entry-card, .sheet { grid-template-columns: minmax(0, 1fr); }
