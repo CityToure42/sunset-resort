@@ -1,6 +1,10 @@
 // 이 파일이 하는 일: 폭이 좁은 폰(320~360px)에서도 진입 화면·HUD·시트가 화면 밖으로 삐져나가 가로 스크롤이 생기지 않는지 확인
 import { test, expect } from '@playwright/test';
 import { gotoBeach } from './helpers.mjs';
+import { installFakeSupabase } from './fake-supabase.mjs';
+
+// 진짜 서버로 나가지 않게 가짜 Supabase를 먼저 끼운다(gotoBeach를 쓰는 테스트는 거기서 다시 끼운 것이 우선)
+test.beforeEach(async ({ page }) => { await installFakeSupabase(page); });
 
 const overflowing = page => page.evaluate(() => {
   const vw = document.documentElement.clientWidth;

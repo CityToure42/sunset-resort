@@ -1,6 +1,10 @@
 // 이 파일이 하는 일: 첫 진입 화면(닉네임·꾸미기)과 메인 HUD(칩·배지·탭)가 약속대로 동작하는지 확인
 import { test, expect } from '@playwright/test';
 import { gotoBeach } from './helpers.mjs';
+import { installFakeSupabase } from './fake-supabase.mjs';
+
+// 진짜 서버로 나가지 않게 가짜 Supabase를 먼저 끼운다(gotoBeach를 쓰는 테스트는 거기서 다시 끼운 것이 우선)
+test.beforeEach(async ({ page }) => { await installFakeSupabase(page); });
 
 test('첫 방문: 추천 닉네임이 채워져 있고, 짧은 이름은 거부, 정상 이름이면 해변으로', async ({ page }) => {
   await page.goto('/');

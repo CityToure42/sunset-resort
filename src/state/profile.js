@@ -30,7 +30,9 @@ export function defaultProfile() {
     look: { ...DEFAULT_LOOK },
     zenSeconds: 0,
     cocktails: { date: '', count: 0 },
-    bottles: []
+    bottles: [],
+    reportedIds: [],      // 내가 신고한 병(내 바다에서 숨김)
+    lastSeenReplyAt: ''   // 메시지 보기를 마지막으로 연 시점의 최신 답글 시각(빨간 점 판단)
   };
 }
 
@@ -50,6 +52,8 @@ export function hydrateProfile(saved = {}) {
     look: normalizeLook(saved.look),
     zenSeconds: Number.isFinite(saved.zenSeconds) ? saved.zenSeconds : 0,
     cocktails: saved.cocktails && typeof saved.cocktails === 'object' ? { date: String(saved.cocktails.date ?? ''), count: Number(saved.cocktails.count) || 0 } : base.cocktails,
-    bottles: cleanBottles(saved.bottles)
+    bottles: cleanBottles(saved.bottles),
+    reportedIds: Array.isArray(saved.reportedIds) ? saved.reportedIds.filter(x => typeof x === 'string') : [],
+    lastSeenReplyAt: typeof saved.lastSeenReplyAt === 'string' ? saved.lastSeenReplyAt : ''
   };
 }

@@ -61,8 +61,9 @@ test('꾸미기에서 셔츠 3번을 고르면 저장되어 새로고침 후에�
 
 test('showToast는 문구를 띄우고 시간이 지나면 숨긴다', async ({ page }) => {
   await gotoBeach(page);
-  await page.evaluate(() => window.__app.toast('안녕', 300));
-  await expect(page.locator('#toast')).toHaveText('안녕');
+  // 느린 테스트 컴퓨터에서도 '보이는 순간'을 놓치지 않게 1.5초 동안 띄운다
+  await page.evaluate(() => window.__app.toast('안녕', 1500));
   await expect(page.locator('#toast')).toBeVisible();
-  await expect(page.locator('#toast')).toBeHidden({ timeout: 3000 });
+  await expect(page.locator('#toast')).toHaveText('안녕');
+  await expect(page.locator('#toast')).toBeHidden({ timeout: 5000 });
 });

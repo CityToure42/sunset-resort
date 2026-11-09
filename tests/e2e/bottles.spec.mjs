@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 import { gotoBeach } from './helpers.mjs';
 
 test('편지 쓰기 → 위치 고르기 → 띄우기 → 링크 → 메시지 보기 → 새로고침 후에도 유지', async ({ page }) => {
-  await gotoBeach(page);
+  const fake = await gotoBeach(page);
   await page.click('#btn-bottle');
   await expect(page.locator('#bottle-panel')).toBeVisible();
   await expect(page.locator('#bottle-shape button')).toHaveCount(6);
@@ -22,7 +22,8 @@ test('편지 쓰기 → 위치 고르기 → 띄우기 → 링크 → 메시지 
   await expect(page.locator('#toast')).toHaveText('편지가 바다에 띄워졌어요');
   await expect(page.locator('#bottle-link')).toHaveValue(/#b=[0-9a-f-]{36}$/);
   expect(await page.evaluate(() => window.__app.bottleField.count)).toBe(1);
-  const b = await page.evaluate(() => window.__app.profile.bottles[0]);
+  // B단계: 병은 폰이 아니라 서버(가짜 Supabase)에 저장된다
+  const b = fake.state.bottles[0];
   expect(b.shape).toBe('heart');
   expect(b.message).toBe('석양이 예뻐요');
   expect(b.x).toBeGreaterThanOrEqual(-18); expect(b.x).toBeLessThanOrEqual(18);
@@ -36,7 +37,7 @@ test('편지 쓰기 → 위치 고르기 → 띄우기 → 링크 → 메시지 
 
   await page.reload();
   await page.waitForFunction(() => document.body.dataset.mode === 'move');
-  expect(await page.evaluate(() => window.__app.bottleField.count)).toBe(1);
+  await page.waitForFunction(() => window.__app.bottleField.count === 1, null, { timeout: 5000 });
   await page.click('button.tab[data-mode="messages"]');
   await expect(page.locator('#messages-panel .bottle-item')).toHaveCount(1);
 });
@@ -50,13 +51,13 @@ test('빈 메시지로 띄우려 하면 안내가 뜬다', async ({ page }) => {
 });
 
 test('위치 고르기에서 취소하면 아무것도 저장되지 않는다', async ({ page }) => {
-  await gotoBeach(page);
+  const fake = await gotoBeach(page);
   await page.click('#btn-bottle');
   await page.fill('#bottle-msg', '취소할 편지');
   await page.click('#bottle-next');
   await page.click('#bottle-cancel');
   await expect(page.locator('#bottle-pick')).toHaveCount(0);
-  expect(await page.evaluate(() => window.__app.profile.bottles.length)).toBe(0);
+  expect(fake.state.bottles.length).toBe(0);
   expect(await page.evaluate(() => window.__app.cameraRig.mode)).toBe('follow');
 });
 

@@ -12,9 +12,8 @@ import { renderEntry } from './ui/entry.js';
 import { renderHud } from './ui/hud.js';
 import { hydrateProfile } from './state/profile.js';
 import { createEffects } from './scene/effects.js';
-import { showToast, renderPlayBar, renderCustomizePanel, renderBottlePanel, renderPickBar, renderBottleDone, renderMessagesPanel } from './ui/panels.js';
-import { BottleStore, validateBottle, clampToBottleArea } from './state/bottles.js';
-import { createBottleField, createBottleMesh } from './scene/bottles3d.js';
+import { showToast, renderPlayBar, renderCustomizePanel } from './ui/panels.js';
+import { setupBottles } from './features/bottles.js';
 import { renderZen } from './ui/zen.js';
 import { createWaveSound } from './audio/waves.js';
 import { takePhoto, sharePhoto, photoFilename } from './ui/photo.js';
@@ -216,102 +215,8 @@ export function createApp({ renderer, resize, canvas, storage }) {
     }
   });
 
-  // ---------- 유리병 편지 ----------
-  const store = new BottleStore(profile.bottles, saveProfile);
-  const bottleField = createBottleField(scene);
-  bottleField.set(store.list());
-  app.bottleStore = store;
-  app.bottleField = bottleField;
-  app.frame.push((dt, t) => bottleField.update(t));
-
-  // 바다 내려다보기 카메라. 세로 폰은 화면이 좁아서 더 높이서 본다
-  // 캐릭터가 서 있는 쪽 앞바다를 비춘다 → 해변을 따라 걸어가서 누르면 그쪽 바다가 보인다
-  const seaView_ = () => {
-    const x = Math.min(14, Math.max(-14, player.position.x));
-    return camera.aspect < 1
-      ? { pos: { x, y: 10, z: -1 }, look: { x, y: 0, z: -17 } }
-      : { pos: { x, y: 4, z: -4 }, look: { x, y: 0, z: -18 } };
-  };
-  let seaView = false;
-  function setSeaView(on) {
-    seaView = on;
-    if (on) cameraRig.setFixed(seaView_().pos, seaView_().look);
-    else cameraRig.follow(player.position);
-    hud?.setSeaButton(on ? '돌아가기' : '바다로 가기');
-  }
-  app.onGoSea = () => setSeaView(!seaView);
-  // 모드가 바뀌면 그 전에 열려 있던 것(바다 보기·편지 시트·위치 고르기·링크 시트·꾸미기)을 먼저 정리한다
-  app.hooks.beforeMode.push(() => {
-    if (seaView) setSeaView(false);
-    bottlePanel?.remove(); bottlePanel = null;
-    if (pick) { endPick(); cameraRig.follow(player.position); }
-    const done = els.panels.querySelector('#bottle-done');
-    if (done) { done.remove(); els.hud.hidden = false; cameraRig.follow(player.position); }
-    els.panels.querySelector('#customize-panel')?.remove();
-  });
-
-  const draft = { shape: 'round', message: '' };
-  let bottlePanel = null, pick = null, preview = null, pickPos = { x: 0, z: -18 };
-  const raycaster = new THREE.Raycaster();
-  const seaPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  const hit = new THREE.Vector3();
-
-  function endPick() {
-    pick?.remove(); pick = null;
-    if (preview) { scene.remove(preview); preview = null; }
-    els.hud.hidden = false;
-  }
-  app.onWriteBottle = () => {
-    if (app.mode !== 'move' && app.mode !== 'play') setMode('move');
-    bottlePanel = renderBottlePanel(els.panels, {
-      draft,
-      onNext: d => {
-        const v = validateBottle({ ...d, x: 0, z: -18 });   // 위치는 다음 단계에서 고르니 모양·메시지만 먼저 검사
-        if (!v.ok) { bottlePanel.showError(v.reason); return; }
-        bottlePanel.remove();
-        startPick();
-      }
-    });
-  };
-  function startPick() {
-    setSeaView(false);
-    cameraRig.setFixed(seaView_().pos, seaView_().look);
-    els.hud.hidden = true;
-    pickPos = clampToBottleArea({ x: player.position.x, z: -18 });
-    preview = createBottleMesh(draft.shape);
-    bottleField.place(preview, pickPos);
-    scene.add(preview);
-    pick = renderPickBar(els.panels, {
-      onPick: (cx, cy) => {
-        const ndc = new THREE.Vector2((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
-        raycaster.setFromCamera(ndc, camera);
-        if (!raycaster.ray.intersectPlane(seaPlane, hit)) return;   // 하늘을 누르면 무시
-        pickPos = clampToBottleArea({ x: hit.x, z: hit.z });
-        bottleField.place(preview, pickPos);
-      },
-      onPlace: () => {
-        const v = validateBottle({ ...draft, ...pickPos });
-        if (!v.ok) { pick.showError(v.reason); return; }
-        const b = store.add({ ...v.value, nickname: profile.nickname });
-        bottleField.set(store.list());
-        draft.message = '';
-        endPick();
-        els.hud.hidden = true;   // 링크 시트를 닫을 때까지 바다를 보여준다
-        showToast('편지가 바다에 띄워졌어요');
-        const link = location.origin + location.pathname + '#b=' + b.id;
-        renderBottleDone(els.panels, { link, onClose: () => { els.hud.hidden = false; cameraRig.follow(player.position); } });
-      },
-      onCancel: () => { endPick(); cameraRig.follow(player.position); }
-    });
-  }
-  app.frame.push((dt, t) => { if (preview) preview.position.y = 0.05 + Math.sin(t * 2) * 0.08; });
-
-  // ---------- 메시지 보기 ----------
-  let messagesPanel = null;
-  app.hooks.mode.push(mode => {
-    if (mode === 'messages' && !messagesPanel) messagesPanel = renderMessagesPanel(els.panels, { bottles: store.list(), onClose: () => { messagesPanel = null; setMode('move'); } });
-    if (mode !== 'messages' && messagesPanel) { messagesPanel.remove(); messagesPanel = null; }
-  });
+  // ---------- 유리병 편지 (src/features/bottles.js) ----------
+  setupBottles(app, { scene, camera, player, cameraRig, els, profile, saveProfile, getHud: () => hud, setMode, showToast });
 
   // ---------- 사진찍기 ----------
   // '사진찍기'는 머무는 모드가 아니라 한 번 찍고 바로 원래 모드로 돌아간다

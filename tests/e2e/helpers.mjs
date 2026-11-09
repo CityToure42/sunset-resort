@@ -1,4 +1,6 @@
 // 이 파일이 하는 일: e2e 테스트 공용 도우미 — 저장된 프로필을 미리 넣어 진입 화면을 건너뛰고 바로 해변으로 들어가게 한다
+import { installFakeSupabase } from './fake-supabase.mjs';
+
 export const STORAGE_KEY = 'sunset-resort:v1';
 
 // 테스트 시계: KST 2026-11-05 15:00 (파스텔 무드, 석양 이벤트 아님)
@@ -20,8 +22,11 @@ export async function seedProfile(page, extra = {}) {
   await page.addInitScript(([key, value]) => { if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(value)); }, [STORAGE_KEY, profile]);
 }
 
-export async function gotoBeach(page, extra = {}) {
+// 해변까지 들어간다. 진짜 서버 대신 가짜 Supabase를 끼우고 그 핸들을 돌려준다
+export async function gotoBeach(page, extra = {}, { fake: fakeOpts = {} } = {}) {
+  const fake = await installFakeSupabase(page, fakeOpts);
   await seedProfile(page, extra);
   await page.goto('/');
   await page.waitForFunction(() => document.body.dataset.mode === 'move');
+  return fake;
 }

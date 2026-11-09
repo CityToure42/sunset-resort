@@ -68,8 +68,32 @@ function hash(str) {
   return (h >>> 0) / 4294967295 * Math.PI * 2;
 }
 
+// 내 병 위에 띄우는 작은 별(캔버스로 그린 그림)
+let starTexture = null;
+function makeStar() {
+  if (!starTexture) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    g.fillStyle = '#ffd166';
+    g.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? 28 : 12, a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+      g[i === 0 ? 'moveTo' : 'lineTo'](32 + Math.cos(a) * r, 32 + Math.sin(a) * r);
+    }
+    g.closePath();
+    g.fill();
+    starTexture = new THREE.CanvasTexture(c);
+    starTexture.colorSpace = THREE.SRGBColorSpace;
+  }
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTexture, transparent: true, depthWrite: false }));
+  s.scale.setScalar(0.35);
+  s.name = 'mine-star';
+  return s;
+}
+
 export function createBottleField(scene) {
-  const meshes = new Map();   // id → { obj, phase }
+  const meshes = new Map();   // id → { obj, phase, star }
 
   function place(obj, b) {
     obj.position.set(b.x, -0.05, b.z);
@@ -81,7 +105,7 @@ export function createBottleField(scene) {
     const list = bottles.slice(0, MAX_BOTTLES);
     const keep = new Set(list.map(b => b.id));
     for (const [id, m] of meshes) {
-      if (!keep.has(id)) { scene.remove(m.obj); meshes.delete(id); }
+      if (!keep.has(id)) { scene.remove(m.obj); if (m.star) scene.remove(m.star); meshes.delete(id); }
     }
     for (const b of list) {
       if (meshes.has(b.id)) continue;
@@ -89,16 +113,54 @@ export function createBottleField(scene) {
       place(obj, b);
       obj.userData.id = b.id;
       scene.add(obj);
-      meshes.set(b.id, { obj, phase: hash(b.id) });
+      let star = null;
+      if (b.isMine) { star = makeStar(); star.position.set(b.x, 0.9, b.z); scene.add(star); }
+      meshes.set(b.id, { obj, phase: hash(b.id), star });
     }
   }
 
   function update(t) {
-    for (const { obj, phase } of meshes.values()) {
+    for (const { obj, phase, star } of meshes.values()) {
       obj.position.y = -0.05 + Math.sin(t + phase) * 0.06;
+      if (star) star.position.y = 0.9 + Math.sin(t * 1.5 + phase) * 0.08;
       obj.rotation.y = Math.sin(t * 0.3 + phase) * 0.4;
     }
   }
 
-  return { set, update, get count() { return meshes.size; }, place };
+  // 병의 화면 좌표(CSS 픽셀). 카메라 뒤에 있거나 없는 병이면 null
+  const v = new THREE.Vector3();
+  function screenPos(id, camera) {
+    const m = meshes.get(id);
+    if (!m) return null;
+    v.copy(m.obj.position).project(camera);
+    if (v.z > 1 || v.z < -1) return null;
+    return { x: (v.x + 1) / 2 * window.innerWidth, y: (1 - v.y) / 2 * window.innerHeight };
+  }
+
+  // 누른 곳(ndc: -1~1)에 있는 병 id. 병이 작아서 손가락이 살짝 빗나가도 되게,
+  // 직접 맞은 병이 없으면 화면에서 tolerancePx 안에 있는 가장 가까운 병을 고른다
+  const raycaster = new THREE.Raycaster();
+  function pickBottle(ndc, camera, tolerancePx = 28) {
+    raycaster.setFromCamera(ndc, camera);
+    const hits = raycaster.intersectObjects([...meshes.values()].map(m => m.obj), true);
+    for (const h of hits) {
+      let o = h.object;
+      while (o && !o.userData.id) o = o.parent;
+      if (o) return o.userData.id;
+    }
+    const tx = (ndc.x + 1) / 2 * window.innerWidth, ty = (1 - ndc.y) / 2 * window.innerHeight;
+    let best = null, bestD = tolerancePx;
+    for (const id of meshes.keys()) {
+      const p = screenPos(id, camera);
+      if (!p) continue;
+      const d = Math.hypot(p.x - tx, p.y - ty);
+      if (d <= bestD) { best = id; bestD = d; }
+    }
+    return best;
+  }
+
+  return {
+    set, update, place, screenPos, pickBottle,
+    get count() { return meshes.size; }, get starCount() { return [...meshes.values()].filter(m => m.star).length; }
+  };
 }

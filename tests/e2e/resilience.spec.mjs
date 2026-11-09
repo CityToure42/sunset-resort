@@ -1,8 +1,10 @@
 // 이 파일이 하는 일: 저장이 막힌 브라우저에서도 앱이 돌아가며 안내가 뜨는지, 그래픽 품질을 낮추는 장치가 실제로 그림자·파도를 줄이는지 확인
 import { test, expect } from '@playwright/test';
 import { gotoBeach } from './helpers.mjs';
+import { installFakeSupabase } from './fake-supabase.mjs';
 
 test('저장이 막혀 있으면 "이번엔 저장이 안 돼요" 안내 후에도 해변은 정상', async ({ page }) => {
+  await installFakeSupabase(page);   // 테스트가 진짜 서버로 나가지 않게(나가면 실패 토스트가 이 안내를 덮는다)
   await page.addInitScript(() => {
     window.__SR_QUALITY__ = 'high';
     Storage.prototype.setItem = function () { throw new Error('QuotaExceededError'); };

@@ -1,0 +1,20 @@
+# 이 파일이 하는 일: Supabase 무료 프로젝트는 7일 동안 요청이 없으면 잠들어요(일시 정지).
+# GitHub가 매일 한 번(한국 시간 오전 9:17) 서버에 "병 목록 주세요"라고 물어서 깨어 있게 합니다.
+# 여기 들어간 키는 앱 코드(src/net/config.js)에도 있는 '공개 키'라 저장소에 있어도 괜찮아요. 관리자 키는 절대 넣지 않습니다.
+name: keepalive
+on:
+  schedule:
+    - cron: "17 0 * * *"   # UTC 00:17 = KST 09:17
+  workflow_dispatch: {}     # Actions 탭에서 손으로도 돌릴 수 있게
+permissions: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Supabase에 병 목록 요청
+        run: |
+          curl -fsS -X POST "https://xrydrdeyaycijtxulgyw.supabase.co/rest/v1/rpc/list_bottles" \
+            -H "apikey: sb_publishable_jJ2gAAnNlaZSO6y5IamVDQ_IfzzY9N6" \
+            -H "Content-Type: application/json" \
+            -d '{"p_token":"00000000-0000-4000-8000-000000000000"}' -o /dev/null -w "HTTP %{http_code}\n"

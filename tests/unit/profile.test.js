@@ -54,3 +54,16 @@ test('I5: 저장값 자체가 배열·숫자여도 기본 프로필', async () =
     assert.deepEqual(p.bottles, []);
   }
 });
+
+test('B단계: reportedIds·lastSeenReplyAt 기본값과 정리', async () => {
+  const { defaultProfile, hydrateProfile } = await import('../../src/state/profile.js');
+  const d = defaultProfile();
+  assert.deepEqual(d.reportedIds, []);
+  assert.equal(d.lastSeenReplyAt, '');
+  const p = hydrateProfile({ reportedIds: 'x', lastSeenReplyAt: 5 });
+  assert.deepEqual(p.reportedIds, []);
+  assert.equal(p.lastSeenReplyAt, '');
+  const q = hydrateProfile({ reportedIds: ['a', 3, 'b'], lastSeenReplyAt: '2026-11-06T00:00:00Z' });
+  assert.deepEqual(q.reportedIds, ['a', 'b']);
+  assert.equal(q.lastSeenReplyAt, '2026-11-06T00:00:00Z');
+});

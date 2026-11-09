@@ -106,9 +106,12 @@ export function renderPickBar(root, { onPick, onPlace, onCancel }) {
   el.querySelector('#bottle-place').addEventListener('click', () => onPlace());
   el.querySelector('#bottle-cancel').addEventListener('click', () => onCancel());
   root.appendChild(el);
+  const placeBtn = el.querySelector('#bottle-place');
   return {
     el,
-    showError: reason => { el.querySelector('#pick-error').textContent = BOTTLE_ERRORS[reason] ?? ''; },
+    showError: reason => { el.querySelector('#pick-error').textContent = BOTTLE_ERRORS[reason] ?? reason ?? ''; },
+    setBusy: busy => { placeBtn.disabled = !!busy; },
+    setPlaceLabel: text => { placeBtn.textContent = text; },
     remove: () => el.remove()
   };
 }
@@ -117,7 +120,7 @@ export function renderPickBar(root, { onPick, onPlace, onCancel }) {
 export function renderBottleDone(root, { link, onClose }) {
   const el = sheet(root, 'bottle-done', '편지를 띄웠어요', 'bottle-done-close');
   el.insertAdjacentHTML('beforeend', `
-    <p class="sheet-text">링크를 친구에게 보내면 이 병 앞에서 편지를 읽을 수 있어요. (친구가 여는 기능은 다음 단계에서 열려요)</p>
+    <p class="sheet-text">링크를 친구에게 보내면 이 병 앞에서 편지를 읽을 수 있어요. 모두의 바다에도 함께 떠 있어요.</p>
     <div class="nick-row">
       <input id="bottle-link" type="text" readonly>
       <button type="button" id="bottle-copy" class="btn-ghost">복사</button>
@@ -132,22 +135,41 @@ export function renderBottleDone(root, { link, onClose }) {
   return { el, remove: () => el.remove() };
 }
 
-// 메시지 보기: 내가 띄운 병 목록
-export function renderMessagesPanel(root, { bottles, onClose }) {
+// 메시지 보기: 내가 띄운 병 목록 — ♥·답글 수, 숨겨짐 표시, 받은 답글 내용
+export function renderMessagesPanel(root, { bottles = [], loading = false, error = false, onClose }) {
   const el = sheet(root, 'messages-panel', '내가 띄운 편지', 'messages-close');
   const fmt = iso => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}월 ${d.getDate()}일`; };
   const list = document.createElement('div');
   list.className = 'bottle-list';
-  if (!bottles.length) {
-    list.innerHTML = '<p class="empty">아직 띄운 편지가 없어요</p>';
-  } else {
+  const empty = text => { const p = document.createElement('p'); p.className = 'empty'; p.textContent = text; list.appendChild(p); };
+  if (loading) empty('불러오는 중…');
+  else if (error) empty('바다 소식을 불러오지 못했어요');
+  else if (!bottles.length) empty('아직 띄운 편지가 없어요');
+  else {
     for (const b of bottles) {
       const item = document.createElement('div');
       item.className = 'bottle-item';
-      item.innerHTML = `<span class="shape-tag"></span><p class="msg"></p><p class="meta"></p>`;
+      item.innerHTML = `<div class="item-head"><span class="shape-tag"></span></div><p class="msg"></p><p class="meta"></p><ul class="replies"></ul>`;
       item.querySelector('.shape-tag').textContent = SHAPE_LABELS[b.shape] ?? '';
+      if (b.hidden) {
+        const tag = document.createElement('span');
+        tag.className = 'hidden-tag';
+        tag.textContent = '숨겨짐';
+        tag.title = '신고가 3번 모여 모두의 바다에서 숨겨졌어요';
+        item.querySelector('.item-head').appendChild(tag);
+      }
       item.querySelector('.msg').textContent = b.message;           // 사용자 글은 textContent로만 넣는다(태그 실행 방지)
-      item.querySelector('.meta').textContent = `${fmt(b.createdAt)} · 좋아요 ${b.likes ?? 0}`;
+      item.querySelector('.meta').textContent = `${fmt(b.createdAt)} · ♥ ${b.likes ?? 0} · 답글 ${b.replyCount ?? 0}`;
+      const ul = item.querySelector('.replies');
+      for (const r of b.replies ?? []) {
+        const li = document.createElement('li');
+        li.className = 'reply';
+        const n = document.createElement('span'); n.className = 'reply-nick'; n.textContent = r.nickname;
+        const m = document.createElement('span'); m.className = 'reply-msg'; m.textContent = r.message;
+        li.append(n, m);
+        ul.appendChild(li);
+      }
+      if (!ul.children.length) ul.remove();
       list.appendChild(item);
     }
   }

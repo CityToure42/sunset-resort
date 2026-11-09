@@ -1,6 +1,10 @@
 // 이 파일이 하는 일: 최종 코드 검토에서 나온 버그들이 다시 생기지 않는지 확인 (각 테스트 이름 앞 기호는 검토 항목 번호)
 import { test, expect } from '@playwright/test';
 import { gotoBeach } from './helpers.mjs';
+import { installFakeSupabase } from './fake-supabase.mjs';
+
+// 진짜 서버로 나가지 않게 가짜 Supabase를 먼저 끼운다(gotoBeach를 쓰는 테스트는 거기서 다시 끼운 것이 우선)
+test.beforeEach(async ({ page }) => { await installFakeSupabase(page); });
 
 const touch = (page, type, x, y, id = 7) => page.evaluate(([type, x, y, id]) => {
   const target = document.elementFromPoint(x, y) || document.getElementById('joystick-layer');

@@ -41,6 +41,13 @@ export function renderHud(root, { profile, onTab, onCustomize, onWriteBottle, on
     setSeaButton: label => { root.querySelector('#btn-sea').textContent = label; },
     setEventLive: live => { root.querySelector('#badge-event').textContent = live ? '석양 이벤트 진행 중' : '매일 오후 7시 석양 이벤트'; root.querySelector('#badge-event').classList.toggle('live', !!live); },
     setTakeVisible: on => { root.querySelector('#btn-take').hidden = !on; },
+    // 내 병에 새 답글이 오면 메시지 보기 탭에 빨간 점
+    setUnread: on => {
+      const tab = root.querySelector('.tab[data-mode="messages"]');
+      const dot = tab.querySelector('.dot');
+      if (on && !dot) { const d = document.createElement('span'); d.className = 'dot'; d.setAttribute('aria-label', '새 답글'); tab.appendChild(d); }
+      if (!on && dot) dot.remove();
+    },
     middle: root.querySelector('#hud-middle')
   };
   api.setNickname(profile.nickname);
