@@ -14,6 +14,7 @@ import { hydrateProfile } from './state/profile.js';
 import { createEffects } from './scene/effects.js';
 import { showToast, renderPlayBar, renderCustomizePanel } from './ui/panels.js';
 import { setupBottles } from './features/bottles.js';
+import { setupPeople } from './features/people.js';
 import { renderZen } from './ui/zen.js';
 import { createWaveSound } from './audio/waves.js';
 import { takePhoto, sharePhoto, photoFilename } from './ui/photo.js';
@@ -80,7 +81,7 @@ export function createApp({ renderer, resize, canvas, storage }) {
     pressKey: (code, down) => keyboard.press(code, down),
     setMode,
     get hud() { return hud; },
-    hooks: { enter: [], beforeMode: [], mode: [] },   // 다른 모듈(놀기·석양멍·병 등)이 끼어드는 자리
+    hooks: { enter: [], beforeMode: [], mode: [], emote: [], look: [] },   // 다른 모듈(놀기·석양멍·병·같은 해변)이 끼어드는 자리
     frame: []                         // 매 프레임 추가로 돌릴 함수들 (dt, t)
   };
 
@@ -116,6 +117,7 @@ export function createApp({ renderer, resize, canvas, storage }) {
   let playBar = null;
   function onEmote(name) {
     anim.play(name);
+    for (const fn of app.hooks.emote) fn(name);   // 같은 해변 사람들에게도 보이게
     const p = player.position;
     if (name === 'wave' || name === 'cheers') effects.spawnHearts({ x: p.x, y: p.y + 2.1, z: p.z });
     if (name === 'throw') effects.spawnBall({ x: p.x + Math.sin(player.heading) * 0.4, y: p.y + 1.4, z: p.z + Math.cos(player.heading) * 0.4 }, player.heading);
@@ -201,7 +203,7 @@ export function createApp({ renderer, resize, canvas, storage }) {
     profile.cocktails = counter.toJSON();
     saveProfile();
     hud.setCocktail(r.count);
-    if (r.ok) anim.play('drink');
+    if (r.ok) { anim.play('drink'); for (const fn of app.hooks.emote) fn('drink'); }
     else showToast('오늘 칵테일은 다 마셨어요. 내일 또 만나요');
   };
   app.frame.push(dt => {
@@ -272,8 +274,11 @@ export function createApp({ renderer, resize, canvas, storage }) {
   // ---------- 꾸미기 ----------
   app.onCustomize = () => renderCustomizePanel(els.panels, {
     look: profile.look,
-    onChange: look => { profile.look = look; avatar.setLook(look); saveProfile(); }
+    onChange: look => { profile.look = look; avatar.setLook(look); saveProfile(); for (const fn of app.hooks.look) fn(look); }
   });
+
+  // ---------- 같은 해변(C단계): 다른 사람 캐릭터·실시간 ----------
+  setupPeople(app, { scene, player, profile, effects, getHud: () => hud, hudRoot: els.hud });
 
   if (profile.nickname) {
     enterBeach();

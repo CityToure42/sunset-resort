@@ -8,7 +8,7 @@ export const TEST_NOW = Date.UTC(2026, 10, 5, 6, 0);
 
 export async function seedProfile(page, extra = {}) {
   // 테스트 컴퓨터는 소프트웨어로 그려서 느리므로, 자동 품질 조정을 꺼 둔다(그 안내 토스트가 다른 테스트를 방해하지 않게)
-  await page.addInitScript(t => { window.__SR_NOW__ = t; window.__SR_QUALITY__ = 'high'; }, TEST_NOW);
+  await page.addInitScript(t => { window.__SR_NOW__ = t; window.__SR_QUALITY__ = 'high'; window.__SR_RT__ = window.__SR_RT__ ?? 'off'; }, TEST_NOW);
   const profile = {
     token: '11111111-2222-4333-8444-555555555555',
     nickname: '테스트',

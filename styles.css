@@ -230,3 +230,22 @@ button, .tab, .emote, .chip-btn { touch-action: manipulation; }
 .tab { position: relative; }
 .tab .dot { position: absolute; top: 6px; right: calc(50% - 18px); width: 9px; height: 9px; border-radius: 50%; background: #ff4d6d; box-shadow: 0 0 0 2px rgba(23, 26, 43, 0.9); }
 #card-reply-send { width: auto; flex: none; padding: 12px 18px; }
+
+/* ---------- C단계: 같은 해변 ---------- */
+.chip.link { color: #2b1d00; background: #ffd166; border-color: #ffd166; }
+/* 채팅: 💬 버튼은 탭 바 바로 위 오른쪽, 입력칸은 그 위에 한 줄 */
+.chat-box { position: absolute; right: max(10px, var(--safe-right)); left: max(10px, var(--safe-left)); bottom: calc(76px + var(--safe-bottom)); display: grid; justify-items: end; gap: 8px; pointer-events: none; }
+.chat-box > * { pointer-events: auto; }
+.chat-btn { appearance: none; width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: rgba(23, 26, 43, 0.8); font-size: 22px; backdrop-filter: blur(6px); }
+.chat-form { width: 100%; max-width: 420px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px; border-radius: 16px; background: rgba(23, 26, 43, 0.92); border: 1px solid var(--line); }
+.chat-form[hidden] { display: none; }
+.chat-form input { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--fg); min-width: 0; }
+.chat-form .btn-primary { width: auto; padding: 10px 16px; }
+.chat-form .error { grid-column: 1 / -1; margin: 0; }
+.chat-form .error:empty { display: none; }
+body:not([data-mode="move"]):not([data-mode="play"]) .chat-box { display: none; }
+/* #hud > * 규칙이 더 세서, 채팅 영역의 빈 곳이 아래 버튼(놀기 동작)을 가리지 않게 다시 막는다 */
+#hud > .chat-box { pointer-events: none; }
+#hud .chat-box > * { pointer-events: auto; }
+/* 놀기 모드에선 동작 버튼 줄 위로 올린다 */
+body[data-mode="play"] .chat-box { bottom: calc(150px + var(--safe-bottom)); }

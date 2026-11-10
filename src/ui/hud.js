@@ -17,6 +17,7 @@ export function renderHud(root, { profile, onTab, onCustomize, onWriteBottle, on
           <button type="button" id="btn-customize" class="chip-btn">꾸미기</button>
         </div>
         <div id="chip-people" class="chip people" hidden></div>
+        <div id="chip-link" class="chip link" role="status" hidden></div>
         <div id="badge-cocktail" class="chip badge"></div>
         <div id="badge-event" class="chip badge">매일 오후 7시 석양 이벤트</div>
       </div>
@@ -41,6 +42,13 @@ export function renderHud(root, { profile, onTab, onCustomize, onWriteBottle, on
     setSeaButton: label => { root.querySelector('#btn-sea').textContent = label; },
     setEventLive: live => { root.querySelector('#badge-event').textContent = live ? '석양 이벤트 진행 중' : '매일 오후 7시 석양 이벤트'; root.querySelector('#badge-event').classList.toggle('live', !!live); },
     setTakeVisible: on => { root.querySelector('#btn-take').hidden = !on; },
+    // 실시간 연결 상태 배지: offline이면 '다시 연결 중', disabled면 '켤 수 없음', 그 밖엔 숨김
+    setLinkState: state => {
+      const el = root.querySelector('#chip-link');
+      const text = { offline: '연결이 끊겼어요 · 다시 연결 중', disabled: '함께 보기를 켤 수 없어요' }[state];
+      el.hidden = !text;
+      el.textContent = text ?? '';
+    },
     // 내 병에 새 답글이 오면 메시지 보기 탭에 빨간 점
     setUnread: on => {
       const tab = root.querySelector('.tab[data-mode="messages"]');

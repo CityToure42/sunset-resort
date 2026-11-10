@@ -11,6 +11,8 @@ export async function installFakeSupabase(page, { bottles = [], failWith = null 
   const stamp = () => new Date(Date.UTC(2026, 10, 6, 0, 0, 0) + (tick++) * 1000).toISOString();
   const state = { bottles: [], replies: [], likes: new Set(), reports: new Set(), calls: [] };
   let fail = failWith;
+  // 실시간은 테스트가 따로 켜지 않으면 끈다('off'). 켜야 하는 테스트는 이보다 먼저 window.__SR_RT__를 정한다
+  await page.addInitScript(() => { window.__SR_RT__ = window.__SR_RT__ ?? 'off'; });
 
   const addBottle = (partial = {}) => {
     const b = {
