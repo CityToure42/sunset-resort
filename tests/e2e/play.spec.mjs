@@ -5,7 +5,7 @@ import { gotoBeach } from './helpers.mjs';
 test('놀기 탭을 누르면 동작 버튼 5개가 보인다', async ({ page }) => {
   await gotoBeach(page);
   await page.click('button.tab[data-mode="play"]');
-  const btns = page.locator('button.emote');
+  const btns = page.locator('button.emote:not([hidden])');   // '마시기'는 잔을 들고 있을 때만 보인다(D단계)
   await expect(btns).toHaveCount(5);
   await expect(btns).toHaveText(['인사', '건배', '춤', '눕기', '비치볼']);
   await page.click('button.tab[data-mode="move"]');

@@ -30,3 +30,14 @@ test('resolveColliders: 정확히 중심에 있으면 +x 쪽으로 밀어낸다(
   assert.ok(Number.isFinite(out.x) && Number.isFinite(out.z));
   assert.ok(Math.hypot(out.x - 2, out.z - 3) >= 1.4 - 1e-9);
 });
+
+test('createClamp: setReach({tube}) 뒤 clamp가 튜브 범위를 따르고, 소품 충돌도 그대로', async () => {
+  const { createClamp } = await import('../../src/scene/world.js');
+  const w = createClamp([{ x: 0, z: 5, r: 1 }]);
+  assert.equal(w.clamp({ x: 0, z: -20 }).z, -12);
+  w.setReach({ tube: true });
+  assert.equal(w.clamp({ x: 0, z: -20 }).z, -20);
+  w.setReach({ tube: false });
+  assert.equal(w.clamp({ x: 0, z: -20 }).z, -12);
+  assert.ok(w.clamp({ x: 0, z: 5 }).x >= 1.4);   // 소품 원 밖으로 밀림
+});

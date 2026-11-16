@@ -5,7 +5,7 @@ import { STORAGE_KEY, TEST_NOW } from './helpers.mjs';
 export const TOKEN_A = 'aaaaaaaa-1111-4111-8111-111111111111';
 export const TOKEN_B = 'bbbbbbbb-2222-4222-8222-222222222222';
 const profile = (nickname, token, shirt) => ({
-  token, nickname, look: { hat: 'bucket', glasses: false, shirt, cocktail: 1 },
+  token, nickname, look: { hat: 'bucket', glasses: false, shirt, cocktail: 1, face: 'smile' },
   zenSeconds: 0, cocktails: { date: '', count: 0 }, bottles: []
 });
 export const PROFILE_A = profile('하나', TOKEN_A, 2);
@@ -24,11 +24,11 @@ async function openOne(context, p, extraInit) {
 }
 
 // 컨텍스트의 기본 설정(baseURL·화면 크기·WebGL 플래그)은 playwright.config의 use를 따른다
-export async function openTwo(browser, { baseURL = 'http://127.0.0.1:4173', extraInitA } = {}) {
+export async function openTwo(browser, { baseURL = 'http://127.0.0.1:4173', extraInitA, profileA = {}, profileB = {} } = {}) {
   const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, hasTouch: true });
   await context.addInitScript(t => { window.__SR_RT__ = 'fake'; window.__SR_NOW__ = t; window.__SR_QUALITY__ = 'high'; }, TEST_NOW);
-  const a = await openOne(context, PROFILE_A, extraInitA);
-  const b = await openOne(context, PROFILE_B);
+  const a = await openOne(context, { ...PROFILE_A, ...profileA }, extraInitA);
+  const b = await openOne(context, { ...PROFILE_B, ...profileB });
   return { context, a, b };
 }
 

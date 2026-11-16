@@ -4,6 +4,8 @@ import { AnimationController } from '../character/animations.js';
 import { makeLabel } from '../scene/labels.js';
 import { createRealtime, supabaseTransport, fakeTransport, STALE_MS, MAX_VISIBLE, BUBBLE_MS } from '../net/realtime.js';
 import { renderChat } from '../ui/chat.js';
+import { poseFor } from './resort.js';
+import { placeOf } from '../scene/places.js';
 import { SUPABASE_URL, SUPABASE_KEY } from '../net/config.js';
 
 // ---------- 순수 계산(단위 테스트) ----------
@@ -63,13 +65,22 @@ export function setupPeople(app, { scene, player, profile, effects, getHud, hudR
     const avatar = buildAvatar(p.look);
     avatar.group.traverse(o => { if (o.isMesh) o.castShadow = false; });   // 다른 사람은 그림자 없이(가볍게)
     const anim = new AnimationController(avatar.parts, avatar.group);
+    anim.holding = false;
     const label = makeLabel(p.nick, 'nick');
     scene.add(avatar.group); scene.add(label);
     const person = { sid: p.sid, nick: p.nick, look: p.look, mode: 'move', avatar, anim, label, pos: { x: p.x, z: p.z }, target: { x: p.x, z: p.z }, ry: p.ry, lastSeen: now() };
     avatar.group.position.set(p.x, 0, p.z);
     people.set(p.sid, person);
+    setGear(person, p);
     setMode(person, p.mode);
     return person;
+  }
+  // D단계: 친구의 튜브·들고 있는 잔(표정은 look 안에 있어 setLook이 맡는다)
+  function setGear(person, p) {
+    person.tube = p.tube ?? null;
+    person.avatar.setTube(person.tube);
+    person.avatar.setDrink(p.drink ?? null);
+    person.anim.holding = p.drink !== null && p.drink !== undefined;
   }
   function remove(s) {
     const p = people.get(s);
@@ -122,6 +133,7 @@ export function setupPeople(app, { scene, player, profile, effects, getHud, hudR
           }
           if (JSON.stringify(person.look) !== JSON.stringify(p.look)) { person.look = p.look; person.avatar.setLook(p.look); }
           person.target = { x: p.x, z: p.z }; person.ry = p.ry;
+          setGear(person, p);
           setMode(person, p.mode);
         }
         person.lastSeen = now();
@@ -150,7 +162,7 @@ export function setupPeople(app, { scene, player, profile, effects, getHud, hudR
     });
 
   // ---------- 내 상태 보내기 ----------
-  const myState = () => ({ sid, nick: profile.nickname, look: profile.look, x: player.position.x, z: player.position.z, ry: player.heading, mode: modeOf(app.mode) });
+  const myState = () => ({ sid, nick: profile.nickname, look: profile.look, x: player.position.x, z: player.position.z, ry: player.heading, mode: modeOf(app.mode), tube: profile.tube ?? null, drink: profile.drink?.cocktail ?? null });
   let lastSentPos = null;
   app.hooks.enter.push(() => {
     if (realtime.status === 'disabled') { getHud()?.setLinkState('disabled'); return; }
@@ -174,10 +186,11 @@ export function setupPeople(app, { scene, player, profile, effects, getHud, hudR
   });
   app.hooks.mode.push(() => realtime.setState(myState()));
   app.hooks.look.push(() => realtime.setState(myState()));
+  app.hooks.gear.push(() => realtime.setState(myState()));   // 잔을 사거나 다 마셨을 때, 튜브를 빌리거나 반납했을 때
   app.hooks.emote.push(name => realtime.sendEmote(name));
 
   // ---------- 매 프레임 ----------
-  app.frame.push(dt => {
+  app.frame.push((dt, et) => {
     // 내 위치: 5cm 넘게 움직였거나 0.1rad 넘게 돌았을 때만(0.5초 제한은 realtime이 지킨다). 멈추면 마지막 위치가 한 번 더 나간다
     const pos = { x: player.position.x, z: player.position.z, ry: player.heading };
     if (!lastSentPos || Math.hypot(pos.x - lastSentPos.x, pos.z - lastSentPos.z) >= 0.05 || Math.abs(pos.ry - lastSentPos.ry) >= 0.1) {
@@ -198,6 +211,12 @@ export function setupPeople(app, { scene, player, profile, effects, getHud, hudR
       p.avatar.group.position.x = next.x; p.avatar.group.position.z = next.z;
       p.avatar.group.rotation.y = p.ry;
       if (moving !== p.anim.moving) p.anim.setMoving(moving);
+      // 받은 위치로 장소를 계산해 자세를 정한다(수영장 잠김·튜브 둥실). 내 캐릭터와 같은 규칙(poseFor)
+      if (p.mode !== 'zen') {
+        const pose = poseFor(placeOf(next.x, next.z), p.tube, et ?? 0);
+        p.anim.baseY += (pose.baseY - p.anim.baseY) * Math.min(1, dt * 6);
+        p.anim.swim = pose.swim;
+      } else { p.anim.baseY = 0; p.anim.swim = false; }
       p.anim.update(dt);
       const show = !near || near.has(p.sid);
       p.avatar.group.visible = show; p.label.visible = show;

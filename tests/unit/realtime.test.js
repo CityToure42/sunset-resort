@@ -24,8 +24,9 @@ test('isSid: UUID 모양만', () => {
   assert.equal(isSid(SID + 'x'), false);
 });
 
-test('parseMove: x 99 → 30으로, z -99 → -12로(BOUNDS)', () => {
-  assert.deepEqual(parseMove({ sid: SID, x: 99, z: -99, ry: 1 }), { sid: SID, x: 30, z: -12, ry: 1 });
+test('parseMove: 튜브 앞바다까지가 끝 — x 99·z -99 → x 28(바다 폭)·z -22, 해변에선 x 30', () => {
+  assert.deepEqual(parseMove({ sid: SID, x: 99, z: -99, ry: 1 }), { sid: SID, x: 28, z: -22, ry: 1 });
+  assert.deepEqual(parseMove({ sid: SID, x: 99, z: 5, ry: 1 }), { sid: SID, x: 30, z: 5, ry: 1 });
 });
 
 test('parseMove: NaN·문자열·Infinity → null', () => {
@@ -56,7 +57,7 @@ test("parseChat: 앞뒤 공백 제거, 31자 → 앞 30자, 빈 글·숫자는 n
 
 test("parsePresence: 이상한 닉네임은 '손님', look 정리, mode 정리, token 같은 다른 필드는 버린다", () => {
   const p = parsePresence({ sid: SID, nick: '<b>x</b>', look: { hat: 'crown', shirt: 99 }, x: 1, z: 2, ry: 0.5, mode: 'fly', token: 'secret', presence_ref: 'r' });
-  assert.deepEqual(p, { sid: SID, nick: '손님', look: normalizeLook({ hat: 'crown', shirt: 99 }), x: 1, z: 2, ry: 0.5, mode: 'move' });
+  assert.deepEqual(p, { sid: SID, nick: '손님', look: normalizeLook({ hat: 'crown', shirt: 99 }), x: 1, z: 2, ry: 0.5, mode: 'move', tube: null, drink: null });
   assert.equal(JSON.stringify(p).includes('secret'), false);
   assert.equal(parsePresence({ sid: SID, nick: '세민', look: {}, x: 1, z: 2, ry: 0, mode: 'zen' }).mode, 'zen');
   assert.equal(parsePresence({ sid: SID, nick: '세민', look: {}, x: 1, z: 2, ry: 'a', mode: 'play' }).ry, 0);
@@ -114,7 +115,7 @@ test('start → connect, online이 되면 status online이고 저장된 state를
   assert.equal(rt.status, 'connecting');
   t.h.onStatus('online');
   assert.equal(rt.status, 'online');
-  assert.deepEqual(t.tracked.at(-1), STATE);
+  assert.deepEqual(t.tracked.at(-1), { ...STATE, tube: null, drink: null });
 });
 
 test('끊기면 1000·2000·4000ms 간격으로 다시 연결하고, online이 되면 간격은 처음부터', () => {
@@ -211,7 +212,7 @@ test('setState는 허용된 칸만 보낸다(기기 열쇠가 실리지 않는�
   rt.sendMove({ x: 1, z: 1, ry: 0, token: 'x' });
   const all = JSON.stringify([t.tracked, t.sent]);
   assert.equal(all.includes('11111111-2222'), false);
-  assert.deepEqual(Object.keys(t.tracked.at(-1)).sort(), ['look', 'mode', 'nick', 'ry', 'sid', 'x', 'z']);
+  assert.deepEqual(Object.keys(t.tracked.at(-1)).sort(), ['drink', 'look', 'mode', 'nick', 'ry', 'sid', 'tube', 'x', 'z']);
 });
 
 test('가짜 어댑터 둘: track과 broadcast가 서로 전해지고, 새로 온 쪽도 먼저 있던 쪽을 알게 된다', async () => {
@@ -293,4 +294,42 @@ test('진짜 어댑터: 숨김→보임이 빠르면(옛 채널이 아직 떠나
   for (const c of lib.clients) for (const f of c.removals) f();   // 이제야 옛 채널 서버 답 도착 → CLOSED
   await tick();
   assert.deepEqual(statuses, ['online', 'online'], '늦게 온 CLOSED로 끊김 처리하면 안 된다');
+});
+
+// ---------- D단계: 튜브·잔·넓힌 위치 범위 ----------
+import { poseFor } from '../../src/features/resort.js';
+
+test('parsePresence: tube·drink 검사', () => {
+  const base = { sid: SID, nick: '세민', look: {}, x: 0, z: 0, ry: 0, mode: 'move' };
+  assert.equal(parsePresence({ ...base, tube: 'boat' }).tube, null);
+  assert.equal(parsePresence({ ...base, tube: 'donut' }).tube, 'donut');
+  assert.equal(parsePresence({ ...base }).tube, null);
+  for (const bad of [7, '1', 1.5, -1, null, undefined]) assert.equal(parsePresence({ ...base, drink: bad }).drink, null, String(bad));
+  assert.equal(parsePresence({ ...base, drink: 2 }).drink, 2);
+  assert.equal(parsePresence({ ...base, drink: 0 }).drink, 0);
+  assert.equal(parsePresence({ ...base, look: { face: 'wink' } }).look.face, 'wink');
+});
+
+test('받은 위치는 튜브 범위까지: z −20 유지, −30 → −22', () => {
+  assert.equal(parseMove({ sid: SID, x: 0, z: -20, ry: 0 }).z, -20);
+  assert.equal(parseMove({ sid: SID, x: 0, z: -30, ry: 0 }).z, -22);
+  assert.equal(parsePresence({ sid: SID, nick: '세민', look: {}, x: 0, z: -20, ry: 0 }).z, -20);
+});
+
+test('setState는 tube·drink를 실어 보내고 기기 열쇠는 없다', () => {
+  const t = memTransport(), c = fakeTimers();
+  const rt = createRealtime({ sid: ME, transport: t, now: c.now, setTimer: c.setTimer, clearTimer: c.clearTimer });
+  rt.start(); t.h.onStatus('online');
+  rt.setState({ ...STATE, tube: 'flamingo', drink: 3, token: '11111111-2222-4333-8444-555555555555' });
+  const sent = t.tracked.at(-1);
+  assert.equal(sent.tube, 'flamingo'); assert.equal(sent.drink, 3);
+  assert.equal(JSON.stringify(sent).includes('11111111-2222'), false);
+});
+
+test('poseFor: 수영장·튜브 바다·얕은 물(튜브 없음)', () => {
+  assert.deepEqual(poseFor('pool', null, 0), { baseY: -0.9, swim: true });
+  const sea = poseFor('sea', 'donut', 0);
+  assert.ok(Math.abs(sea.baseY + 0.55) < 1e-9); assert.equal(sea.swim, false);
+  assert.deepEqual(poseFor('shallow', null, 0), { baseY: 0, swim: false });
+  assert.deepEqual(poseFor('sand', 'donut', 0), { baseY: 0, swim: false });
 });

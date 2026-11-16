@@ -5,7 +5,7 @@ import { createWorld } from './scene/world.js';
 import { createCameraRig } from './scene/camera.js';
 import { buildAvatar } from './character/avatar.js';
 import { AnimationController } from './character/animations.js';
-import { createPlayer } from './character/player.js';
+import { createPlayer, PLAYER_SPEED } from './character/player.js';
 import { createJoystick } from './ui/joystick.js';
 import { createKeyboard } from './ui/keyboard.js';
 import { renderEntry } from './ui/entry.js';
@@ -15,11 +15,12 @@ import { createEffects } from './scene/effects.js';
 import { showToast, renderPlayBar, renderCustomizePanel } from './ui/panels.js';
 import { setupBottles } from './features/bottles.js';
 import { setupPeople } from './features/people.js';
+import { setupResort } from './features/resort.js';
+import { chooseSunbed } from './scene/places.js';
 import { renderZen } from './ui/zen.js';
 import { createWaveSound } from './audio/waves.js';
 import { takePhoto, sharePhoto, photoFilename } from './ui/photo.js';
 import { FpsMeter, decideQuality } from './state/quality.js';
-import { CocktailCounter } from './state/daily.js';
 import { moodAt } from './state/mood.js';
 
 export const MODES = ['move', 'play', 'zen', 'messages', 'photo'];
@@ -35,6 +36,8 @@ export function createApp({ renderer, resize, canvas, storage }) {
   const avatar = buildAvatar(profile.look);
   scene.add(avatar.group);
   const anim = new AnimationController(avatar.parts, avatar.group);
+  avatar.setDrink(profile.drink?.cocktail ?? null);   // D단계: 처음엔 빈손, 바에서 산 잔만 든다
+  anim.holding = !!profile.drink;
   const player = createPlayer({ avatar, anim, world });
   const cameraRig = createCameraRig(camera);
   cameraRig.follow(player.position);
@@ -81,7 +84,7 @@ export function createApp({ renderer, resize, canvas, storage }) {
     pressKey: (code, down) => keyboard.press(code, down),
     setMode,
     get hud() { return hud; },
-    hooks: { enter: [], beforeMode: [], mode: [], emote: [], look: [] },   // 다른 모듈(놀기·석양멍·병·같은 해변)이 끼어드는 자리
+    hooks: { enter: [], beforeMode: [], mode: [], emote: [], look: [], gear: [] },   // 다른 모듈(놀기·석양멍·병·같은 해변)이 끼어드는 자리
     frame: []                         // 매 프레임 추가로 돌릴 함수들 (dt, t)
   };
 
@@ -105,7 +108,8 @@ export function createApp({ renderer, resize, canvas, storage }) {
       onCustomize: () => app.onCustomize?.(),
       onWriteBottle: () => app.onWriteBottle?.(),
       onGoSea: () => app.onGoSea?.(),
-      onTake: () => app.onTake?.()
+      onTake: () => app.onTake?.(),
+      onTube: () => app.resort?.onTubeButton()
     });
     for (const fn of app.hooks.enter) fn();
     setMode('move');
@@ -116,6 +120,7 @@ export function createApp({ renderer, resize, canvas, storage }) {
   // ---------- 놀기 ----------
   let playBar = null;
   function onEmote(name) {
+    if (name === 'drink') { app.resort.drink(); return; }   // 마시기는 들고 있는 잔이 있어야(resort)
     anim.play(name);
     for (const fn of app.hooks.emote) fn(name);   // 같은 해변 사람들에게도 보이게
     const p = player.position;
@@ -123,20 +128,25 @@ export function createApp({ renderer, resize, canvas, storage }) {
     if (name === 'throw') effects.spawnBall({ x: p.x + Math.sin(player.heading) * 0.4, y: p.y + 1.4, z: p.z + Math.cos(player.heading) * 0.4 }, player.heading);
   }
   app.hooks.mode.push(mode => {
-    if (mode === 'play' && !playBar) playBar = renderPlayBar(hud.middle, { onEmote });
-    if (mode !== 'play' && playBar) { playBar.remove(); playBar = null; }
+    if (mode === 'play' && !playBar) app.playBar = playBar = renderPlayBar(hud.middle, { onEmote });
+    if (mode !== 'play' && playBar) { playBar.remove(); app.playBar = playBar = null; }
   });
 
   // ---------- 석양멍 ----------
   const waveSound = createWaveSound();
   app.waveSound = waveSound;
   let zenUi = null, zenTimer = null, zenSession = 0;
+  // 물속 자세(잠긴 높이·헤엄·느린 걸음)를 모래 위 기본값으로 되돌린다
+  function resetWaterPose() { anim.baseY = 0; anim.swim = false; player.speed = PLAYER_SPEED; }
   function enterZen() {
-    const sb = world.props.points.sunbed;
+    // 가장 가까운 빈 선베드: 석양멍 중인 친구가 누운 자리는 피한다(D단계)
+    const taken = [...(app.people?.people.values() ?? [])].filter(p => p.mode === 'zen').map(p => p.target ?? p.pos);   // 보간 중인 위치가 아니라 친구가 보낸 실제 자리
+    const sb = app.zenSeat = chooseSunbed(world.props.points.sunbeds, player.position, taken);
     const back = { x: -Math.sin(sb.ry), z: -Math.cos(sb.ry) };   // 등받이 쪽 방향
     const feetDir = { x: Math.sin(sb.ry), z: Math.cos(sb.ry) };
     // 캐릭터의 기준점은 발밑이라, 발 쪽으로 0.9 옮겨야 누웠을 때 머리가 등받이에 온다
     player.teleport(sb.x + feetDir.x * 0.9, sb.z + feetDir.z * 0.9, sb.ry);
+    resetWaterPose();   // 수영장·바다에서 바로 눌러도 선베드 위에 눕게
     anim.play('lie');
     const left = { x: -Math.cos(sb.ry), z: Math.sin(sb.ry) };     // 파라솔 반대편(선베드 왼쪽)
     cameraRig.setZen({ x: sb.x + back.x * 4.5 + left.x * 2.2, y: 3.2, z: sb.z + back.z * 4.5 + left.z * 2.2 }, { x: 3.0, y: -1.2, z: -20 });
@@ -159,9 +169,10 @@ export function createApp({ renderer, resize, canvas, storage }) {
     waveSound.stop();
     zenUi?.hide();
     zenUi = null;
-    const sb = world.props.points.sunbed;
+    const sb = app.zenSeat ?? world.props.points.sunbed;
     const feet = { x: Math.sin(sb.ry), z: Math.cos(sb.ry) };      // 발끝(바다) 쪽 방향
     anim.stop();
+    resetWaterPose();
     avatar.group.rotation.x = 0;
     avatar.group.position.y = 0;
     player.teleport(sb.x + feet.x * 1.7, sb.z + feet.z * 1.7, sb.ry);
@@ -177,7 +188,6 @@ export function createApp({ renderer, resize, canvas, storage }) {
   // 테스트는 window.__SR_NOW__(밀리초)로 시계를 고정할 수 있다. 실제 사용자에겐 없는 값이라 항상 현재 시각
   let now = () => (typeof globalThis.__SR_NOW__ === 'number' ? new Date(globalThis.__SR_NOW__) : new Date());
   app.setNow = fn => { now = fn; checkClock(); };   // 테스트용 시계 바꿔 끼우기
-  const counter = new CocktailCounter(profile.cocktails);
   const BAR_RANGE = 2.6;
   let clockMood = moodAt(now());
   app.currentMood = clockMood;
@@ -186,7 +196,6 @@ export function createApp({ renderer, resize, canvas, storage }) {
 
   function checkClock(initial = false) {
     const t = now();
-    hud?.setCocktail(counter.max - counter.remaining(t));
     const m = moodAt(t);
     if (m !== clockMood) {
       if (m === 'dramatic') showToast('석양 이벤트가 시작됐어요');
@@ -198,14 +207,7 @@ export function createApp({ renderer, resize, canvas, storage }) {
   }
   setInterval(checkClock, 1000);
 
-  app.onTake = () => {
-    const r = counter.take(now());
-    profile.cocktails = counter.toJSON();
-    saveProfile();
-    hud.setCocktail(r.count);
-    if (r.ok) { anim.play('drink'); for (const fn of app.hooks.emote) fn('drink'); }
-    else showToast('오늘 칵테일은 다 마셨어요. 내일 또 만나요');
-  };
+  app.onTake = () => app.resort.openBar();   // D단계: 바에서 조개로 칵테일 사기
   app.frame.push(dt => {
     // 무드는 목표 팔레트 쪽으로 약 2초에 걸쳐 서서히 섞인다
     sky.applyMood(app.currentMood, Math.min(1, dt / 2 * 3));
@@ -251,6 +253,8 @@ export function createApp({ renderer, resize, canvas, storage }) {
   app.quality = null;
   function applyQuality(q, announce = true) {
     app.quality = q;
+    app.resort?.shells.setQuality(q);   // 느린 폰: 조개 반짝임 끄기
+    world.props.pool.setQuality(q);     // 느린 폰: 비눗방울 절반
     if (q === 'low') {
       sky.setShadows(false);
       water.setSegments(35);
@@ -279,6 +283,7 @@ export function createApp({ renderer, resize, canvas, storage }) {
 
   // ---------- 같은 해변(C단계): 다른 사람 캐릭터·실시간 ----------
   setupPeople(app, { scene, player, profile, effects, getHud: () => hud, hudRoot: els.hud });
+  setupResort(app, { scene, world, player, avatar, anim, profile, saveProfile, getHud: () => hud, showToast, els });
 
   if (profile.nickname) {
     enterBeach();

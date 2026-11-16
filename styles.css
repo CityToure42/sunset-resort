@@ -249,3 +249,17 @@ body:not([data-mode="move"]):not([data-mode="play"]) .chat-box { display: none; 
 #hud .chat-box > * { pointer-events: auto; }
 /* 놀기 모드에선 동작 버튼 줄 위로 올린다 */
 body[data-mode="play"] .chat-box { bottom: calc(150px + var(--safe-bottom)); }
+
+/* ---------- D단계: 바 메뉴판 · 튜브 고르기 ---------- */
+.menu-list { display: grid; gap: 8px; }
+.menu-row { display: grid; gap: 4px; }
+.menu-row .error { margin: 0; }
+.menu-row .error:empty { display: none; }
+.menu-btn {
+  appearance: none; width: 100%; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+  padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--fg); font-size: 16px; text-align: left;
+}
+.menu-btn:active { background: rgba(255, 255, 255, 0.14); }
+.menu-dot { width: 18px; height: 18px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35); }
+.menu-price { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+#bar-menu .note { margin: 0; color: #ffd166; font-size: 13px; }

@@ -53,3 +53,10 @@ test('world.clamp를 거친다', () => {
   player.step(0.05, { x: 0, y: -1 }, 0);
   assert.deepEqual([player.position.x, player.position.z], [1, 2]);
 });
+
+test('player.speed를 바꾸면 그 속도로 움직인다', () => {
+  const { player } = make();
+  player.speed = 1.25;
+  for (let i = 0; i < 20; i++) player.step(0.05, { x: 0, y: -1 }, 0);
+  assert.ok(Math.abs(player.position.z + 1.25) < 1e-6, `z=${player.position.z}`);
+});

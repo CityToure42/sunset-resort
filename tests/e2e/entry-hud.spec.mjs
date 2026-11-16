@@ -39,7 +39,7 @@ test('저장된 닉네임이 있으면 진입 화면 없이 바로 메인', asyn
   await gotoBeach(page, { nickname: '세민' });
   await expect(page.locator('#entry')).toBeHidden();
   await expect(page.locator('#chip-nick')).toHaveText('세민');
-  await expect(page.locator('#badge-cocktail')).toHaveText('오늘의 칵테일 0/5');
+  await expect(page.locator('#badge-shells')).toHaveText('🐚 3');
   await expect(page.locator('#badge-event')).toHaveText('매일 오후 7시 석양 이벤트');
 });
 

@@ -20,7 +20,7 @@ export function createPlayer({ avatar, anim, world, speed = PLAYER_SPEED }) {
       const rx = Math.cos(camYaw), rz = -Math.sin(camYaw);    // 오른쪽 방향
       const dx = fx * -iy + rx * ix, dz = fz * -iy + rz * ix;
       const mag = Math.min(1, len);
-      const next = { x: position.x + dx * speed * dt, z: position.z + dz * speed * dt };
+      const next = { x: position.x + dx * api.speed * dt, z: position.z + dz * api.speed * dt };   // api.speed: 물속·바다에선 resort가 늦춘다
       const clamped = world.clamp(next, PLAYER_RADIUS);
       position.x = clamped.x;
       position.z = clamped.z;

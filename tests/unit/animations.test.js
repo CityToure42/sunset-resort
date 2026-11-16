@@ -61,3 +61,30 @@ test('모르는 동작은 무시', () => {
   const { c } = make();
   c.play('fly'); assert.equal(c.state, 'idle');
 });
+
+test('baseY -0.9면 가만히 1초 뒤 몸 높이가 -0.9 근처', () => {
+  const { a, c } = make();
+  c.baseY = -0.9;
+  for (let i = 0; i < 20; i++) c.update(0.05);
+  assert.ok(Math.abs(a.group.position.y + 0.9) < 0.05, `y=${a.group.position.y}`);
+});
+
+test('swim + 걷기면 팔을 크게 젓고 다리는 거의 그대로', () => {
+  const { a, c } = make();
+  c.swim = true;
+  c.setMoving(true);
+  let maxArm = 0, maxLeg = 0;
+  for (let i = 0; i < 40; i++) { c.update(0.05); maxArm = Math.max(maxArm, Math.abs(a.parts.armL.rotation.x)); maxLeg = Math.max(maxLeg, Math.abs(a.parts.legL.rotation.x)); }
+  assert.ok(maxArm > 0.5, `arm ${maxArm}`);
+  assert.ok(maxLeg < 0.1, `leg ${maxLeg}`);
+});
+
+test('빈손(holding false)이면 오른팔이 내려온다, 들면(true) 잔 든 자세', () => {
+  const { a, c } = make();
+  c.holding = false;
+  for (let i = 0; i < 40; i++) c.update(0.05);
+  assert.ok(Math.abs(a.parts.armR.rotation.x) < 0.1, `빈손 ${a.parts.armR.rotation.x}`);
+  c.holding = true;
+  for (let i = 0; i < 40; i++) c.update(0.05);
+  assert.ok(Math.abs(a.parts.armR.rotation.x + 1.35) < 0.05, `잔 ${a.parts.armR.rotation.x}`);
+});

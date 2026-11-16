@@ -7,7 +7,7 @@ export const TABS = [
   { mode: 'photo', label: '사진찍기', icon: '📷' }
 ];
 
-export function renderHud(root, { profile, onTab, onCustomize, onWriteBottle, onGoSea, onTake }) {
+export function renderHud(root, { profile, onTab, onCustomize, onWriteBottle, onGoSea, onTake, onTube }) {
   root.innerHTML = `
     <div class="hud-top">
       <div class="hud-left">
@@ -18,7 +18,7 @@ export function renderHud(root, { profile, onTab, onCustomize, onWriteBottle, on
         </div>
         <div id="chip-people" class="chip people" hidden></div>
         <div id="chip-link" class="chip link" role="status" hidden></div>
-        <div id="badge-cocktail" class="chip badge"></div>
+        <div id="badge-shells" class="chip badge"></div>
         <div id="badge-event" class="chip badge">매일 오후 7시 석양 이벤트</div>
       </div>
       <div class="hud-right">
@@ -26,22 +26,24 @@ export function renderHud(root, { profile, onTab, onCustomize, onWriteBottle, on
         <button type="button" id="btn-sea" class="chip chip-btn">바다로 가기</button>
       </div>
     </div>
-    <div id="hud-middle" class="hud-middle"><button type="button" id="btn-take" class="take-btn" hidden>칵테일 받기</button></div>
+    <div id="hud-middle" class="hud-middle"><button type="button" id="btn-take" class="take-btn" hidden>칵테일 사기</button><button type="button" id="btn-tube" class="take-btn" hidden>튜브 빌리기</button></div>
     <nav class="tabs" aria-label="메뉴">
       ${TABS.map(t => `<button type="button" class="tab" data-mode="${t.mode}"><span class="tab-icon" aria-hidden="true">${t.icon}</span><span class="tab-label">${t.label}</span></button>`).join('')}
     </nav>`;
 
   const nickEl = root.querySelector('#chip-nick');
-  const cocktailEl = root.querySelector('#badge-cocktail');
+  const shellsEl = root.querySelector('#badge-shells');
   const peopleEl = root.querySelector('#chip-people');
   const api = {
     setNickname: n => { nickEl.textContent = n; },
-    setCocktail: n => { cocktailEl.textContent = `오늘의 칵테일 ${n}/5`; },
+    setShells: n => { shellsEl.textContent = `🐚 ${n}`; },   // D단계: 가진 조개 수
     setPeople: n => { if (n == null) peopleEl.hidden = true; else { peopleEl.hidden = false; peopleEl.textContent = `지금 ${n}명이 함께 있어요`; } },
     setActiveTab: mode => root.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode))),
     setSeaButton: label => { root.querySelector('#btn-sea').textContent = label; },
     setEventLive: live => { root.querySelector('#badge-event').textContent = live ? '석양 이벤트 진행 중' : '매일 오후 7시 석양 이벤트'; root.querySelector('#badge-event').classList.toggle('live', !!live); },
     setTakeVisible: on => { root.querySelector('#btn-take').hidden = !on; },
+    // 튜브 대여소 버튼: null이면 숨김, 아니면 그 문구로 보임
+    setTubeButton: label => { const b = root.querySelector('#btn-tube'); b.hidden = !label; if (label) b.textContent = label; },
     // 실시간 연결 상태 배지: offline이면 '다시 연결 중', disabled면 '켤 수 없음', 그 밖엔 숨김
     setLinkState: state => {
       const el = root.querySelector('#chip-link');
@@ -59,7 +61,7 @@ export function renderHud(root, { profile, onTab, onCustomize, onWriteBottle, on
     middle: root.querySelector('#hud-middle')
   };
   api.setNickname(profile.nickname);
-  api.setCocktail(0);
+  api.setShells(profile.shells ?? 0);
   api.setPeople(null);
   api.setActiveTab('move');
 
@@ -68,6 +70,7 @@ export function renderHud(root, { profile, onTab, onCustomize, onWriteBottle, on
   root.querySelector('#btn-bottle').addEventListener('click', () => onWriteBottle?.());
   root.querySelector('#btn-sea').addEventListener('click', () => onGoSea?.());
   root.querySelector('#btn-take').addEventListener('click', () => onTake?.());
+  root.querySelector('#btn-tube').addEventListener('click', () => onTube?.());
   root.hidden = false;
   return api;
 }

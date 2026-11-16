@@ -12,6 +12,9 @@ export class AnimationController {
     this.state = 'idle';
     this.t = 0;          // 현재 상태에 머문 시간
     this.moving = false;
+    this.baseY = 0;       // 쉬는 자세의 몸 높이(수영장 -0.9, 튜브는 흔들리는 값). D단계에서 resort·people이 정한다
+    this.swim = false;    // true면 걷기 대신 팔 젓기(수영장)
+    this.holding = true;  // 잔을 들고 있나. false면 오른팔을 내린다(빈손)
   }
 
   setMoving(on) {
@@ -40,13 +43,22 @@ export class AnimationController {
 
     // 기본값: 서 있는 자세로 서서히 복귀 (k는 '얼마나 빨리 제자리로'의 비율)
     const k = Math.min(1, dt * 10);
-    const target = { legL: 0, legR: 0, armLx: REST.armL.x, armRx: REST.armR.x, armRz: REST.armR.z, bodyY: 0, groupX: 0, groupY: 0 };
+    const target = {
+      legL: 0, legR: 0, armLx: REST.armL.x,
+      armRx: this.holding ? REST.armR.x : 0, armRz: this.holding ? REST.armR.z : -0.18,   // 빈손이면 오른팔도 내린다
+      bodyY: 0, groupX: 0, groupY: this.baseY
+    };
     const t = this.t;
 
     switch (this.state) {
       case 'walk': {
         const sw = Math.sin(t * WALK_FREQ) * 0.6;
-        target.legL = sw; target.legR = -sw; target.armLx = -sw * 0.7;
+        if (this.swim) {   // 수영장: 다리는 그대로, 두 팔을 크게 번갈아 젓기
+          target.armLx = -1.2 + Math.sin(t * WALK_FREQ * 0.8) * 1.0;
+          target.armRx = -1.2 - Math.sin(t * WALK_FREQ * 0.8) * 1.0;
+        } else {
+          target.legL = sw; target.legR = -sw; target.armLx = -sw * 0.7;
+        }
         break;
       }
       case 'wave':
@@ -61,7 +73,7 @@ export class AnimationController {
         target.legL = Math.sin(t * 8) * 0.2; target.legR = -Math.sin(t * 8) * 0.2;
         break;
       case 'lie':
-        target.groupX = -Math.PI / 2 + 0.35; target.groupY = 0.5;   // 뒤로 누움(선베드 각도)
+        target.groupX = -Math.PI / 2 + 0.35; target.groupY = 0.5 + this.baseY;   // 뒤로 누움(선베드 각도)
         target.armRx = -0.9; target.armLx = -0.3;
         break;
       case 'throw':

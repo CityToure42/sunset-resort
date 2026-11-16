@@ -7,7 +7,8 @@ export const EMOTE_BUTTONS = [
   { emote: 'cheers', label: '건배' },
   { emote: 'dance', label: '춤' },
   { emote: 'lie', label: '눕기' },
-  { emote: 'throw', label: '비치볼' }
+  { emote: 'throw', label: '비치볼' },
+  { emote: 'drink', label: '마시기' }   // 잔을 들고 있을 때만 보인다(D단계)
 ];
 
 let toastTimer = null;
@@ -26,7 +27,9 @@ export function renderPlayBar(root, { onEmote }) {
   bar.innerHTML = EMOTE_BUTTONS.map(b => `<button type="button" class="emote" data-emote="${b.emote}">${b.label}</button>`).join('');
   bar.addEventListener('click', e => { const b = e.target.closest('.emote'); if (b) onEmote(b.dataset.emote); });
   root.appendChild(bar);
-  return { el: bar, remove: () => bar.remove() };
+  const drinkBtn = bar.querySelector('[data-emote="drink"]');
+  drinkBtn.hidden = true;
+  return { el: bar, remove: () => bar.remove(), setDrinkVisible: on => { drinkBtn.hidden = !on; } };
 }
 
 export function renderCustomizePanel(root, { look, onChange, onClose }) {

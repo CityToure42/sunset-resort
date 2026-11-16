@@ -4,8 +4,8 @@ import { createWater } from './water.js';
 import { createBeach } from './beach.js';
 import { createProps } from './props.js';
 
-// 갈 수 있는 범위: 모래(z ≥ -9)와 발목 깊이 얕은 물(-12 ≤ z < -9), x는 -30~30, 뒤쪽은 z 40까지
-export const BOUNDS = { xMin: -30, xMax: 30, zMin: -12, zMax: 40 };
+import { BOUNDS, clampFor } from './places.js';
+export { BOUNDS };
 
 export function clampToBeach({ x, z }) {
   return {
@@ -29,11 +29,20 @@ export function resolveColliders(p, r, circles) {
   return { x, z };
 }
 
+// 소품 충돌 + 갈 수 있는 범위. 튜브가 있으면 앞바다(z -22)까지 — reach는 resort가 튜브를 빌리고 반납할 때 바꾼다
+export function createClamp(colliders) {
+  let reach = { tube: false };
+  return {
+    clamp: (p, r = 0.4) => clampFor(resolveColliders(p, r, colliders), reach),
+    setReach: r => { reach = { tube: !!r?.tube }; }
+  };
+}
+
 export function createWorld(scene) {
   const sky = createSky(scene);
   const water = createWater(scene);
   const beach = createBeach(scene);
   const props = createProps(scene);
-  const clamp = (p, r = 0.4) => clampToBeach(resolveColliders(p, r, props.colliders));
-  return { sky, water, beach, props, clamp, update: t => water.update(t) };
+  const { clamp, setReach } = createClamp(props.colliders);
+  return { sky, water, beach, props, clamp, setReach, update: t => { water.update(t); props.pool.update(t); } };
 }

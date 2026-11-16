@@ -1,5 +1,7 @@
 // 이 파일이 하는 일: 야자수·수상 방갈로·선베드 세트·해변 바 같은 소품을 기본 도형으로 조립해 놓고, 부딪히는 원(충돌 영역)과 중요한 자리(선베드·바·병 구역)를 알려준다
 import * as THREE from 'three';
+import { SUNBEDS, TUBE_RACK, POOL } from './places.js';
+import { createPool } from './pool.js';
 
 const mat = (color, extra) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.9, metalness: 0, flatShading: true }, extra || {}));
 const add = (parent, geo, material, x = 0, y = 0, z = 0) => {
@@ -109,16 +111,33 @@ function beachBar(scene, x, z) {
   return { x, z, r: 1.5 };
 }
 
+// 튜브 대여소: 나무 기둥 두 개 + 가로대, 튜브 3개(도넛·플라밍고·수박 색)가 걸려 있다
+function tubeRack(scene, x, z) {
+  const g = new THREE.Group();
+  g.position.set(x, 0, z);
+  for (const sx of [-0.9, 0.9]) add(g, new THREE.CylinderGeometry(0.06, 0.06, 1.6, 6), mat('#9b6b43'), sx, 0.8, 0);
+  add(g, new THREE.BoxGeometry(2.0, 0.08, 0.1), mat('#9b6b43'), 0, 1.5, 0);
+  ['#ff9ec7', '#ff7eb6', '#3fa34d'].forEach((c, i) => {
+    const ring = add(g, new THREE.TorusGeometry(0.32, 0.1, 8, 16), mat(c, { roughness: 0.5 }), -0.6 + i * 0.6, 1.1, 0.05);
+    ring.rotation.y = 0.15;
+  });
+  const sign = add(g, new THREE.BoxGeometry(0.9, 0.3, 0.05), mat('#fff6ea'), 0, 1.75, 0);
+  sign.castShadow = false;
+  scene.add(g);
+  return { x, z, r: 0.8 };
+}
+
 export function createProps(scene) {
   const colliders = [];
   colliders.push(palm(scene, -6.2, -5, 0.9, 1.1), palm(scene, 7.4, -4.2, -0.8, 1.0), palm(scene, -10, 1.5, 0.5, 1.25), palm(scene, 11, 2, -0.4, 0.95), palm(scene, -7.5, 5.5, 0.3, 0.9));
   bungalow(scene, -15, -24, 0.25);
   bungalow(scene, 17, -28, -0.2);
-  // 등받이가 바다 반대편(+z)으로 가도록 돌려 놓는다 → 누우면 발끝 너머로 석양이 보인다
-  const sunbed = { x: 5.3, z: 2.0, ry: Math.PI - 0.45 };
-  colliders.push(...sunbedSet(scene, sunbed.x, sunbed.z, sunbed.ry));
+  // 선베드 6세트(D단계). 등받이가 바다 반대편(+z)으로 가도록 돌려 놓는다 → 누우면 발끝 너머로 석양이 보인다
+  for (const sb of SUNBEDS) colliders.push(...sunbedSet(scene, sb.x, sb.z, sb.ry));
   const bar = { x: -5.5, z: 4 };
   colliders.push(beachBar(scene, bar.x, bar.z));
-  const points = { sunbed, bar, bottleArea: { xMin: -18, xMax: 18, zMin: -24, zMax: -12 } };
-  return { colliders, points };
+  colliders.push(tubeRack(scene, TUBE_RACK.x, TUBE_RACK.z));
+  const points = { sunbed: SUNBEDS[0], sunbeds: SUNBEDS, bar, tubeRack: TUBE_RACK, bottleArea: { xMin: -18, xMax: 18, zMin: -24, zMax: -12 } };
+  const pool = createPool(scene, POOL);   // 버블풀(D단계). 수영장엔 들어갈 수 있으니 충돌 원은 없다
+  return { colliders, points, pool };
 }

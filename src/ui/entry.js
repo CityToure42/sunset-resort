@@ -1,12 +1,13 @@
 // 이 파일이 하는 일: 첫 진입 화면 — 닉네임(추천 미리 채움, 직접 수정 가능)과 꾸미기 컨트롤을 보여주고, 검증을 통과하면 프로필을 넘겨준다
 import { suggestNickname, validateNickname } from '../state/nickname.js';
-import { normalizeLook, HATS } from '../state/profile.js';
-import { SHIRT_COLORS, COCKTAIL_COLORS } from '../character/avatar.js';
+import { normalizeLook, HATS, FACES } from '../state/profile.js';
+import { SHIRT_COLORS } from '../character/avatar.js';
 
 const HAT_LABELS = { straw: '밀짚모자', bucket: '버킷햇', none: '모자 없음' };
+export const FACE_LABELS = { smile: '기본 미소', round: '땡그란 눈', grin: '활짝 웃음', wink: '윙크', heart: '하트 눈', sleepy: '졸린 눈' };
 const ERROR_TEXT = { length: '2~10자로 적어주세요', chars: '한글·영문·숫자만 쓸 수 있어요' };
 
-// 꾸미기 컨트롤(모자·선글라스·셔츠·칵테일). 진입 화면과 꾸미기 패널이 같이 쓴다
+// 꾸미기 컨트롤(모자·선글라스·셔츠·표정). 진입 화면과 꾸미기 패널이 같이 쓴다. 칵테일은 D단계부터 바에서 산다
 export function renderLookControls(root, look, onChange) {
   const state = normalizeLook(look);
   root.innerHTML = `
@@ -19,15 +20,15 @@ export function renderLookControls(root, look, onChange) {
     <div class="look-row"><span class="look-label">셔츠</span><div class="look-opts" data-group="shirt">
       ${SHIRT_COLORS.map((c, i) => `<button type="button" class="swatch" data-shirt="${i}" style="--c:${c}" aria-label="셔츠 ${i + 1}"></button>`).join('')}
     </div></div>
-    <div class="look-row"><span class="look-label">칵테일</span><div class="look-opts" data-group="cocktail">
-      ${COCKTAIL_COLORS.map((c, i) => `<button type="button" class="swatch" data-cocktail="${i}" style="--c:${c}" aria-label="칵테일 ${i + 1}"></button>`).join('')}
+    <div class="look-row"><span class="look-label">표정</span><div class="look-opts" data-group="face">
+      ${FACES.map(f => `<button type="button" class="opt" data-face="${f}">${FACE_LABELS[f]}</button>`).join('')}
     </div></div>`;
 
   function paint() {
     root.querySelectorAll('[data-hat]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hat === state.hat)));
     root.querySelectorAll('[data-glasses]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.glasses === String(state.glasses))));
     root.querySelectorAll('[data-shirt]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.shirt) === state.shirt)));
-    root.querySelectorAll('[data-cocktail]').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.cocktail) === state.cocktail)));
+    root.querySelectorAll('[data-face]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.face === state.face)));
   }
   root.addEventListener('click', e => {
     const b = e.target.closest('button');
@@ -35,7 +36,7 @@ export function renderLookControls(root, look, onChange) {
     if (b.dataset.hat) state.hat = b.dataset.hat;
     else if (b.dataset.glasses) state.glasses = b.dataset.glasses === 'true';
     else if (b.dataset.shirt) state.shirt = Number(b.dataset.shirt);
-    else if (b.dataset.cocktail) state.cocktail = Number(b.dataset.cocktail);
+    else if (b.dataset.face) state.face = b.dataset.face;
     else return;
     paint();
     onChange({ ...state });

@@ -1,8 +1,8 @@
 // 이 파일이 하는 일: 같은 해변 실시간(C단계)의 통신 담당 — 정해 둔 숫자들, 받은 메시지를 믿지 않고 검사하는 함수, 보내는 횟수 제한, 한 사람이 너무 많이 보낼 때 잠깐 무시하기
-import { clampToBeach } from '../scene/world.js';
+import { clampFor } from '../scene/places.js';
 import { EMOTES } from '../character/animations.js';
 import { validateNickname } from '../state/nickname.js';
-import { normalizeLook } from '../state/profile.js';
+import { normalizeLook, TUBES, COCKTAIL_COUNT } from '../state/profile.js';
 
 // ---------- 정해 둔 숫자(스펙 그대로) ----------
 export const MOVE_INTERVAL_MS = 500;      // 위치는 0.5초에 한 번까지
@@ -26,7 +26,7 @@ const obj = v => v && typeof v === 'object';
 
 export function parseMove(raw) {
   if (!obj(raw) || !isSid(raw.sid) || !num(raw.x) || !num(raw.z) || !num(raw.ry)) return null;
-  const p = clampToBeach({ x: raw.x, z: raw.z });   // 해변 밖이면 안쪽으로 당긴다
+  const p = clampFor({ x: raw.x, z: raw.z }, { tube: true });   // 갈 수 있는 가장 넓은 범위(튜브 앞바다) 밖이면 안쪽으로 당긴다
   return { sid: raw.sid, x: p.x, z: p.z, ry: raw.ry };
 }
 
@@ -45,14 +45,16 @@ export function parseChat(raw) {
 export function parsePresence(raw) {
   if (!obj(raw) || !isSid(raw.sid) || !num(raw.x) || !num(raw.z)) return null;
   const n = validateNickname(raw.nick);
-  const p = clampToBeach({ x: raw.x, z: raw.z });
+  const p = clampFor({ x: raw.x, z: raw.z }, { tube: true });
   return {
     sid: raw.sid,
     nick: n.ok ? n.value : '손님',
     look: normalizeLook(raw.look),
     x: p.x, z: p.z,
     ry: num(raw.ry) ? raw.ry : 0,
-    mode: MODES.includes(raw.mode) ? raw.mode : 'move'
+    mode: MODES.includes(raw.mode) ? raw.mode : 'move',
+    tube: TUBES.includes(raw.tube) ? raw.tube : null,   // D단계: 목록에 없는 튜브는 없음
+    drink: Number.isInteger(raw.drink) && raw.drink >= 0 && raw.drink < COCKTAIL_COUNT ? raw.drink : null   // 들고 있는 잔 색
   };
 }
 
@@ -83,7 +85,7 @@ export function createFloodGuard({ max = FLOOD_MAX, windowMs = 1000, muteMs = FL
 
 // ---------- 연결 관리자 ----------
 // 어댑터(진짜 Supabase 또는 테스트용 가짜)를 받아서: 연결·재연결, 내 상태 올리기, 보내기 횟수 제한, 받은 메시지 검사를 맡는다
-const STATE_KEYS = ['sid', 'nick', 'look', 'x', 'z', 'ry', 'mode'];
+const STATE_KEYS = ['sid', 'nick', 'look', 'x', 'z', 'ry', 'mode', 'tube', 'drink'];
 const PARSE = { move: parseMove, emote: parseEmote, chat: parseChat, here: raw => (obj(raw) && isSid(raw.sid) ? { sid: raw.sid } : null) };
 
 export function createRealtime({ sid, transport, now = () => Date.now(), setTimer = setTimeout, clearTimer = clearTimeout }) {
@@ -110,7 +112,7 @@ export function createRealtime({ sid, transport, now = () => Date.now(), setTime
     },
     setState(s) {
       state = {};
-      for (const k of STATE_KEYS) state[k] = s[k];   // 허용한 칸만(기기 열쇠 같은 건 절대 안 실린다)
+      for (const k of STATE_KEYS) state[k] = s[k] ?? null;   // 허용한 칸만(기기 열쇠 같은 건 절대 안 실린다), 없는 칸은 null
       state.sid = sid;
       if (rt.status === 'online') track();
     },
